@@ -1,0 +1,12 @@
+{
+  "entity": {
+    "sensor": {
+      "water_counter_a": {
+        "name": "Счётчик ХВС"
+      },
+      "water_counter_b": {
+        "name": "Счётчик ГВС"
+      }
+    }
+  }
+}

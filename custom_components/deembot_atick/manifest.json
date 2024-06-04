@@ -1,0 +1,17 @@
+{
+  "domain": "deembot_atick",
+  "name": "Deembot aTick BLE",
+  "version": "0.0.1",
+  "bluetooth": [
+    {
+      "local_name": "aTick",
+      "manufacturer_data_start": [44, 65, 65]
+    }
+  ],
+  "codeowners": ["@xnicon"],
+  "config_flow": true,
+  "dependencies": ["bluetooth_adapters"],
+  "documentation": "",
+  "iot_class": "local_polling",
+  "integration_type": "hub"
+}
