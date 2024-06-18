@@ -1,12 +1,35 @@
 {
+    "config": {
+        "step": {
+            "user": {
+                "title": "Setup a new device",
+                "data": {
+                    "address": "Device's name and MAC-address",
+                    "pin": "PIN pairing device from app"
+                }
+            }
+        },
+        "error": {
+            "no_devices_found": "Not found device",
+            "cannot_connect": "Timeout connect",
+            "pin_invalid": "PIN invalid",
+            "unknown": "Unknown error"
+        },
+        "abort": {
+            "no_devices_found": "Nоt found other devices",
+            "reconfigure_successful": "Reconfigure successful"
+        }
+    },
     "entity": {
         "sensor": {
-          "water_counter_a": {
-            "name": "Счётчик ХВС"
-          },
-          "water_counter_b": {
-            "name": "Счётчик ГВС"
-          }
+            "deembot_atick": {
+                "counter_a_value": {
+                    "name": "Water counter A"
+                },
+                "counter_b_value": {
+                    "name": "Water Counter B"
+                }
+            }
         }
     }
 }

@@ -1,18 +1,14 @@
-import asyncio
 import logging
-from dataclasses import dataclass
-from datetime import timedelta
 
-from bleak import BleakError, BLEDevice
 from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, UPDATE_SECONDS
+from .const import DOMAIN
+from .coordinator import ATickDataUpdateCoordinator
 from .device import ATickBTDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,13 +16,6 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS = [
     Platform.SENSOR
 ]
-
-@dataclass
-class BLEData:
-    ble_device: BLEDevice
-    device: ATickBTDevice
-    coordinator: DataUpdateCoordinator[None]
-
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     assert entry.unique_id is not None
@@ -37,32 +26,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not ble_device:
         raise ConfigEntryNotReady(f"Could not find BT Device with address {address}")
 
-    atick_device = ATickBTDevice(ble_device)
-
-    async def _async_update() -> None:
-        """Update the device state."""
-        try:
-            await atick_device.update()
-        except (BleakError, asyncio.TimeoutError) as ex:
-            await atick_device.stop()
-
-            raise UpdateFailed(str(ex)) from ex
-
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name=entry.title,
-        update_method=_async_update,
-        update_interval=timedelta(seconds=UPDATE_SECONDS),
-    )
-
-    hass.data[DOMAIN][entry.entry_id] = BLEData(
+    coordinator = ATickDataUpdateCoordinator(
+        hass=hass,
+        entry=entry,
+        logger=_LOGGER,
         ble_device=ble_device,
-        device=atick_device,
-        coordinator=coordinator
+        device=ATickBTDevice(ble_device),
+        connectable=True
     )
 
-    await coordinator.async_config_entry_first_refresh()
+    hass.data[DOMAIN][entry.entry_id] = coordinator
+
+    entry.async_on_unload(coordinator.async_start())
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -77,8 +52,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             connections={
                 (dr.CONNECTION_BLUETOOTH, address)
             },
-            model=entry.title,
             name=entry.title,
+            model=device_info.get('model'),
             manufacturer=device_info.get('manufacturer'),
             sw_version=device_info.get('firmware_version')
         )

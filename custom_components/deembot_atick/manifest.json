@@ -1,17 +1,21 @@
 {
-  "domain": "deembot_atick",
-  "name": "Deembot aTick BLE",
-  "version": "0.0.1",
-  "bluetooth": [
-    {
-      "local_name": "aTick",
-      "manufacturer_data_start": [44, 65, 65]
-    }
-  ],
-  "codeowners": ["@xnicon"],
-  "config_flow": true,
-  "dependencies": ["bluetooth_adapters"],
-  "documentation": "",
-  "iot_class": "local_polling",
-  "integration_type": "hub"
+    "domain": "deembot_atick",
+    "name": "Deembot aTick BLE",
+    "version": "0.0.2",
+    "bluetooth": [
+        {
+            "service_uuid": "348634b0-efe4-11e4-b80c-0800200c9a66"
+        }
+    ],
+    "codeowners": [
+        "@xnicon"
+    ],
+    "config_flow": true,
+    "dependencies": [
+        "bluetooth_adapters"
+    ],
+    "documentation": "https://github.com/XNicON/hassio-atick",
+    "issue_tracker": "https://github.com/XNicON/hassio-atick/issues",
+    "iot_class": "local_polling",
+    "integration_type": "device"
 }

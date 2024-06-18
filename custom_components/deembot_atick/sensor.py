@@ -6,49 +6,49 @@ from decimal import Decimal
 from homeassistant.components.bluetooth import async_last_service_info
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorEntityDescription, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfVolume, SIGNAL_STRENGTH_DECIBELS_MILLIWATT, EntityCategory
+from homeassistant.const import UnitOfVolume, SIGNAL_STRENGTH_DECIBELS_MILLIWATT, EntityCategory, CONF_PIN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from . import BLEData
+from . import ATickDataUpdateCoordinator
 from .base_entity import BaseEntity
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-TYPE_COUNTER_A = "water_counter_a"
-TYPE_COUNTER_B = "water_counter_b"
+TYPE_COUNTER_A = "counter_a_value"
+TYPE_COUNTER_B = "counter_b_value"
 
-ENTITIES: dict[str, SensorEntityDescription] = {
-    "counter_a": SensorEntityDescription(
+ENTITIES: list[SensorEntityDescription] = [
+    SensorEntityDescription(
         key=TYPE_COUNTER_A,
-        name="Water Counter A",
-        translation_key=TYPE_COUNTER_A
+        translation_key=TYPE_COUNTER_A,
+        name="Counter A"
     ),
-    "counter_b": SensorEntityDescription(
+    SensorEntityDescription(
         key=TYPE_COUNTER_B,
-        name="Water Counter B",
-        translation_key=TYPE_COUNTER_B
+        translation_key=TYPE_COUNTER_B,
+        name="Counter B"
     ),
-}
+]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    ble_data: BLEData = hass.data[DOMAIN][entry.entry_id]
+    coordinator: ATickDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     sensors = [
-        ATickRSSISensor(ble_data)
+        ATickRSSISensor(coordinator)
     ]
 
-    for sensorId, description in ENTITIES.items():
-        sensors.append(ATickWaterCounterSensor(ble_data, sensorId, description))
+    for description in ENTITIES:
+        sensors.append(ATickWaterCounterSensor(coordinator, description))
 
     async_add_entities(sensors)
 
 class ATickWaterCounterSensor(BaseEntity, SensorEntity):
-    def __init__(self, ble_data: BLEData, sensorId: str, sensor_description: SensorEntityDescription) -> None:
-        super().__init__(ble_data)
+    def __init__(self, coordinator: ATickDataUpdateCoordinator, sensor_description: SensorEntityDescription) -> None:
+        super().__init__(coordinator)
 
-        self._attr_unique_id = f"{self._device.base_unique_id}-{sensorId}"
+        self._attr_unique_id = f"{self._device.base_unique_id}-{sensor_description.key}"
         self._attr_name = self._device.name + ' ' + sensor_description.name
         self._attr_icon = "mdi:counter"
         self._attr_device_class = SensorDeviceClass.WATER
@@ -60,20 +60,12 @@ class ATickWaterCounterSensor(BaseEntity, SensorEntity):
 
     @property
     def native_value(self) -> Decimal:
-        if self.entity_description.key == TYPE_COUNTER_A:
-            return self._device.counter_a_value
+        return self._device.data[self.entity_description.key]
 
-        return self._device.counter_b_value
-
-    def available(self) -> bool:
-        return True
 
 class ATickRSSISensor(BaseEntity, SensorEntity):
-    def __init__(self, ble_data: BLEData, ) -> None:
-        super().__init__(ble_data)
-
-        self._attr_unique_id = f"{self._device.base_unique_id}-rssi"
-        self._attr_name = self._device.name + ' Bluetooth signal'
+    def __init__(self, coordinator: ATickDataUpdateCoordinator) -> None:
+        super().__init__(coordinator)
 
         self.entity_description = SensorEntityDescription(
             key="rssi",
@@ -84,6 +76,9 @@ class ATickRSSISensor(BaseEntity, SensorEntity):
             entity_registry_enabled_default=False,
             entity_category=EntityCategory.DIAGNOSTIC,
         )
+
+        self._attr_unique_id = f"{self._device.base_unique_id}-{self.entity_description.key}"
+        self._attr_name = self._device.name + ' Bluetooth signal'
 
     @property
     def native_value(self) -> str | int | None:

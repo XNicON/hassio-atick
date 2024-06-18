@@ -1,12 +1,40 @@
 {
+    "config": {
+        "step": {
+            "user": {
+                "title": "Настройка нового устройства",
+                "data": {
+                    "address": "MAC-адрес устройства",
+                    "pin": "ПИН используемый для подключения"
+                }
+            },
+            "reconfigure": {
+                "data": {
+                    "pin": "Укажите ПИН используемый для подключения"
+                }
+            }
+        },
+        "error": {
+            "no_devices_found": "Активные устройства не найдены",
+            "cannot_connect": "Не удалось подключиться, попробуйте снова",
+            "pin_invalid": "ПИН не может быть таким",
+            "unknown": "Неизвестная ошибка, попробуйте снова"
+        },
+        "abort": {
+            "no_devices_found": "Других устройств не найдено",
+            "reconfigure_successful": "Перенастройка выполнена успешно"
+        }
+    },
     "entity": {
         "sensor": {
-          "water_counter_a": {
-            "name": "Счётчик ХВС"
-          },
-          "water_counter_b": {
-            "name": "Счётчик ГВС"
-          }
+            "deembot_atick": {
+                "counter_a_value": {
+                    "name": "Счётчик ХВС"
+                },
+                "counter_b_value": {
+                    "name": "Счётчик ГВС"
+                }
+           }
         }
     }
 }
