@@ -1,7 +1,7 @@
 {
     "domain": "deembot_atick",
     "name": "Deembot aTick BLE",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "bluetooth": [
         {
             "service_uuid": "348634b0-efe4-11e4-b80c-0800200c9a66"

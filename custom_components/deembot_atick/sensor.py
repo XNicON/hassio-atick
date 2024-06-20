@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import logging
-from decimal import Decimal
+from functools import cached_property
 
 from homeassistant.components.bluetooth import async_last_service_info
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorEntityDescription, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfVolume, SIGNAL_STRENGTH_DECIBELS_MILLIWATT, EntityCategory, CONF_PIN
+from homeassistant.const import UnitOfVolume, SIGNAL_STRENGTH_DECIBELS_MILLIWATT, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from . import ATickDataUpdateCoordinator
 from .base_entity import BaseEntity
@@ -23,12 +24,20 @@ ENTITIES: list[SensorEntityDescription] = [
     SensorEntityDescription(
         key=TYPE_COUNTER_A,
         translation_key=TYPE_COUNTER_A,
-        name="Counter A"
+        name="Counter A",
+        device_class=SensorDeviceClass.WATER,
+        native_unit_of_measurement=UnitOfVolume.CUBIC_METERS,
+        state_class = SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=2
     ),
     SensorEntityDescription(
         key=TYPE_COUNTER_B,
         translation_key=TYPE_COUNTER_B,
-        name="Counter B"
+        name="Counter B",
+        device_class=SensorDeviceClass.WATER,
+        native_unit_of_measurement=UnitOfVolume.CUBIC_METERS,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=2
     ),
 ]
 
@@ -44,22 +53,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     async_add_entities(sensors)
 
-class ATickWaterCounterSensor(BaseEntity, SensorEntity):
+
+class ATickWaterCounterSensor(BaseEntity, SensorEntity, RestoreEntity):
     def __init__(self, coordinator: ATickDataUpdateCoordinator, sensor_description: SensorEntityDescription) -> None:
         super().__init__(coordinator)
 
-        self._attr_unique_id = f"{self._device.base_unique_id}-{sensor_description.key}"
-        self._attr_name = self._device.name + ' ' + sensor_description.name
-        self._attr_icon = "mdi:counter"
-        self._attr_device_class = SensorDeviceClass.WATER
-        self._attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
-        self._attr_state_class = SensorStateClass.TOTAL_INCREASING
-        self._attr_suggested_display_precision = 2
-
         self.entity_description = sensor_description
 
+        self._attr_unique_id = f"{self._device.base_unique_id}-{self.entity_description.key}"
+        self._attr_name = self._device.name + ' ' + self.entity_description.name
+        self._attr_icon = "mdi:counter"
+        self._attr_device_class = self.entity_description.device_class
+        self._attr_native_unit_of_measurement = self.entity_description.native_unit_of_measurement
+        self._attr_state_class = self.entity_description.state_class
+        self._attr_suggested_display_precision = self.entity_description.suggested_display_precision
+
+    async def async_added_to_hass(self) -> None:
+        if self._device.data[self.entity_description.key] is None:
+            self._device.data[self.entity_description.key] = await self.async_get_last_state()
+
+        await super().async_added_to_hass()
+
     @property
-    def native_value(self) -> Decimal:
+    def native_value(self) -> float | None:
         return self._device.data[self.entity_description.key]
 
 
@@ -80,9 +96,9 @@ class ATickRSSISensor(BaseEntity, SensorEntity):
         self._attr_unique_id = f"{self._device.base_unique_id}-{self.entity_description.key}"
         self._attr_name = self._device.name + ' Bluetooth signal'
 
-    @property
+    @cached_property
     def native_value(self) -> str | int | None:
-        if service_info := async_last_service_info(self.hass, self._address):
+        if service_info := async_last_service_info(self.hass, self._address, False):
             return service_info.rssi
 
         return None

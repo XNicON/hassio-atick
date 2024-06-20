@@ -21,7 +21,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     assert entry.unique_id is not None
     hass.data.setdefault(DOMAIN, {})
     address: str = entry.data[CONF_ADDRESS]
-    ble_device = bluetooth.async_ble_device_from_address(hass, address.upper(), True)
+    ble_device = bluetooth.async_ble_device_from_address(hass, address.upper(), False)
 
     if not ble_device:
         raise ConfigEntryNotReady(f"Could not find BT Device with address {address}")

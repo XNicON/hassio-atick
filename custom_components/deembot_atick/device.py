@@ -1,8 +1,7 @@
+import array
 import asyncio
-import binascii
 import dataclasses
 import logging
-import struct
 import time
 from contextlib import AsyncExitStack
 from textwrap import wrap
@@ -14,7 +13,10 @@ from .const import (UUID_ATTR_VERSION_FIRMWARE,
                     UUID_ATTR_MANUFACTURER,
                     UUID_SERVICE_AG,
                     UUID_AG_ATTR_VALUES,
-                    UUID_AG_ATTR_RATIOS, DEFAULT_PIN_DEVICE, ACTIVE_POLL_INTERVAL, UUID_ATTR_MODEL)
+                    UUID_AG_ATTR_RATIOS,
+                    DEFAULT_PIN_DEVICE,
+                    ACTIVE_POLL_INTERVAL,
+                    UUID_ATTR_MODEL)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,13 +35,13 @@ class ATickBTDevice:
         self._client: BleakClient | None = None
         self._client_stack = AsyncExitStack()
         self._lock = asyncio.Lock()
-        self.data = {
-            'model': 'ATick',
-            'manufacturer': '',
-            'firmware_version': '',
+        self.data: dict[str, str | int | float | None] = {
+            'model': None,
+            'manufacturer': None,
+            'firmware_version': None,
 
-            'counter_a_value': 0.0,
-            'counter_b_value': 0.0,
+            'counter_a_value': None,
+            'counter_b_value': None,
             'counter_a_ratio': 0.01,
             'counter_b_ratio': 0.01,
         }
@@ -53,11 +55,13 @@ class ATickBTDevice:
     async def active_full_update(self):
         try:
             await self.device_info_update()
-            await self.update_counters_value()
 
-            self._last_active_update = time.monotonic()
+            # Требуется сопряжение устройства
+            # await self.update_counters_value()
         finally:
             await self.stop()
+
+        self._last_active_update = time.monotonic()
 
         _LOGGER.debug('active update')
 
@@ -68,7 +72,11 @@ class ATickBTDevice:
 
         _LOGGER.debug('device info active update')
 
-    def parse_advertisement_data(self, pin: None | str, adv: AdvertisementData):
+    def parse_advertisement_data(self, pin: None | str, adv: AdvertisementData) -> ATickParsedAdvertisementData | None:
+        # Может и не быть
+        if not adv.manufacturer_data:
+            return None
+
         new_values = (0, 0)
 
         try:
@@ -87,7 +95,7 @@ class ATickBTDevice:
 
     def is_advertisement_changed(self, parsed_advertisement: ATickParsedAdvertisementData) -> bool:
         return (
-                (parsed_advertisement.counter_a_value + parsed_advertisement.counter_b_value > 0)
+                ((parsed_advertisement.counter_a_value + parsed_advertisement.counter_b_value) > 0)
                 and (parsed_advertisement.counter_a_value != self.data['counter_a_value']
                      or parsed_advertisement.counter_b_value != self.data['counter_b_value'])
                 )
@@ -155,23 +163,31 @@ class ATickBTDevice:
 
     async def update_counters_value(self):
         if data := await self.read_gatt(UUID_AG_ATTR_VALUES):
-            values = struct.unpack('<ff', data)
-            self.data['counter_a_value'] = round(values[0], 2)
-            self.data['counter_b_value'] = round(values[1], 2)
+            values = array.array('f', data).tolist()
+            self.data['counter_a_value'] = self.truncate_float(values[0], 2)
+            self.data['counter_b_value'] = self.truncate_float(values[1], 2)
 
     async def update_counters_ratio(self):
         if data := await self.read_gatt(UUID_AG_ATTR_RATIOS):
-            values = struct.unpack('<ff', data)
-            self.data['counter_a_ratio'] = round(values[0], 2)
-            self.data['counter_b_ratio'] = round(values[1], 2)
+            values = array.array('f', data).tolist()
+            self.data['counter_a_ratio'] = self.truncate_float(values[0], 2)
+            self.data['counter_b_ratio'] = self.truncate_float(values[1], 2)
 
     async def update_model_name(self):
         if data := await self.read_gatt(UUID_ATTR_MODEL):
             self.data['model'] = data.decode("utf-8")
 
     @staticmethod
+    def is_encrypted(data: bytes):
+        return (int.from_bytes(data[7:8]) & 16) != 0
+
+    @staticmethod
     def decToHex(num: int) -> str:
         return num.to_bytes((num.bit_length() + 7) // 8, 'little').hex() or '00'
+
+    @staticmethod
+    def truncate_float(n, places):
+        return int(n * (10 ** places)) / 10 ** places
 
     @staticmethod
     def midLittleIndian(valueHex):
@@ -180,27 +196,33 @@ class ATickBTDevice:
         return arr[2] + arr[3] + arr[0] + arr[1]
 
     def parseAdvValuesCounters(self, data, KEY, MAC):
-        res = ''
-        i4 = 0
+        if self.is_encrypted(data):
+            res = ''
+            i4 = 0
 
-        for i in range(6):
-            i2 = i * 3
-            i4 += int(MAC[i2:i2 + 2], 16)
+            for i in range(6):
+                i2 = i * 3
+                i4 += int(MAC[i2:i2 + 2], 16)
 
-        for i3 in range(4):
-            i4 += (int(KEY) >> (i3 * 8)) & 255
+            for i3 in range(4):
+                i4 += (int(KEY) >> (i3 * 8)) & 255
 
-        i8 = ((i4 ^ 255) + 1) & 255
+            i8 = ((i4 ^ 255) + 1) & 255
 
-        for i5 in range(1, 9):
-            res += (self.decToHex((data[i5] ^ i8) & 255))
+            for i5 in range(1, 9):
+                res += (self.decToHex((data[i5] ^ i8) & 255))
 
-        floatHex = wrap(res, 8)
+            floatValues = array.array(
+                'f',
+                bytes.fromhex(self.midLittleIndian(res[0:8]) + self.midLittleIndian(res[8:16]))
+            ).tolist()
+        else:
+            floatValues = array.array('f', data[1:9]).tolist()
 
-        return (
-            round(struct.unpack('<f', binascii.a2b_hex(self.midLittleIndian(floatHex[0])))[0], 2),
-            round(struct.unpack('<f', binascii.a2b_hex(self.midLittleIndian(floatHex[1])))[0], 2)
-        )
+        return [
+            self.truncate_float(floatValues[0], 2),
+            self.truncate_float(floatValues[1], 2)
+        ]
 
     @property
     def name(self):

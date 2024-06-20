@@ -50,19 +50,21 @@ class ATickDataUpdateCoordinator(ActiveBluetoothDataUpdateCoordinator[None]):
     ) -> bool:
         _LOGGER.debug("check needs_poll")
 
-        # Only poll if hass is running, we need to poll,
-        # and we actually have a way to connect to the device
-        return (
+        is_need = (
             self.hass.state is CoreState.running
             and self.device.active_poll_needed(seconds_since_last_poll)
-            and bool(bluetooth.async_ble_device_from_address(self.hass, service_info.device.address, connectable=True))
+            and bool(bluetooth.async_ble_device_from_address(self.hass, service_info.device.address, True))
         )
+
+        _LOGGER.debug("needs_poll: %s", is_need)
+
+        # Only poll if hass is running, we need to poll,
+        # and we actually have a way to connect to the device
+        return is_need
 
     async def _async_update(self, service_info: bluetooth.BluetoothServiceInfoBleak) -> None:
         """Poll the device."""
-        return
 
-        # Требуется сопряжение устройства
         try:
             await self.device.active_full_update()
         except Exception as ex:
@@ -91,7 +93,7 @@ class ATickDataUpdateCoordinator(ActiveBluetoothDataUpdateCoordinator[None]):
         _LOGGER.debug("%s: advertisement raw data: %s", self.address, service_info.advertisement)
         _LOGGER.debug("%s: advertisement data: %s", self.address, parsed_adv)
 
-        if self.device.is_advertisement_changed(parsed_adv) or self._was_unavailable:
+        if parsed_adv is not None and (self.device.is_advertisement_changed(parsed_adv) or self._was_unavailable):
             self._was_unavailable = False
             self.device.update_from_advertisement(parsed_adv)
 
