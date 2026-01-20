@@ -58,6 +58,9 @@ class ATickBTDevice:
 
             # Требуется сопряжение устройства
             # await self.update_counters_value()
+
+            # Чтение множителей счетчиков
+            await self.update_counters_ratio()
         finally:
             await self.stop()
 
@@ -172,6 +175,28 @@ class ATickBTDevice:
             values = array.array('f', data).tolist()
             self.data['counter_a_ratio'] = self.truncate_float(values[0], 2)
             self.data['counter_b_ratio'] = self.truncate_float(values[1], 2)
+
+    async def set_counter_values(self, counter_a: float | None = None, counter_b: float | None = None):
+        """Установить начальные показания счетчиков."""
+        # Получаем текущие значения
+        current_a = self.data['counter_a_value'] or 0.0
+        current_b = self.data['counter_b_value'] or 0.0
+
+        # Используем переданные значения или оставляем текущие
+        new_a = counter_a if counter_a is not None else current_a
+        new_b = counter_b if counter_b is not None else current_b
+
+        # Формируем массив float и конвертируем в байты
+        data = array.array('f', [new_a, new_b]).tobytes()
+
+        # Записываем в устройство
+        await self.write_gatt(UUID_AG_ATTR_VALUES, data.hex())
+
+        # Обновляем локальные данные
+        self.data['counter_a_value'] = self.truncate_float(new_a, 2)
+        self.data['counter_b_value'] = self.truncate_float(new_b, 2)
+
+        _LOGGER.info("Set counter values: A=%.2f, B=%.2f", new_a, new_b)
 
     async def update_model_name(self):
         if data := await self.read_gatt(UUID_ATTR_MODEL):

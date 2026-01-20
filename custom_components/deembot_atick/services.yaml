@@ -1,0 +1,36 @@
+set_initial_values:
+  name: Установить начальные показания
+  description: Устанавливает начальные показания счетчиков воды для устройства aTick
+  fields:
+    device_id:
+      name: Устройство
+      description: Устройство aTick для установки показаний
+      required: true
+      example: "a1b2c3d4e5f6"
+      selector:
+        device:
+          integration: deembot_atick
+    counter_a:
+      name: Счетчик A
+      description: Начальное показание счетчика A (в кубических метрах)
+      required: false
+      example: 123.45
+      selector:
+        number:
+          min: 0
+          max: 999999
+          step: 0.01
+          mode: box
+          unit_of_measurement: "м³"
+    counter_b:
+      name: Счетчик B
+      description: Начальное показание счетчика B (в кубических метрах)
+      required: false
+      example: 67.89
+      selector:
+        number:
+          min: 0
+          max: 999999
+          step: 0.01
+          mode: box
+          unit_of_measurement: "м³"

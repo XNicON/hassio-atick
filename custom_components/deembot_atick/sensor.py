@@ -70,13 +70,24 @@ class ATickWaterCounterSensor(BaseEntity, SensorEntity, RestoreEntity):
 
     async def async_added_to_hass(self) -> None:
         if self._device.data[self.entity_description.key] is None:
-            self._device.data[self.entity_description.key] = await self.async_get_last_state()
+            if last_state := await self.async_get_last_state():
+                try:
+                    self._device.data[self.entity_description.key] = float(last_state.state)
+                except (ValueError, TypeError):
+                    _LOGGER.warning("Could not restore last state for %s: %s", self._attr_unique_id, last_state.state)
 
         await super().async_added_to_hass()
 
     @property
     def native_value(self) -> float | None:
-        return self._device.data[self.entity_description.key]
+        value = self._device.data[self.entity_description.key]
+        if value is None:
+            return None
+
+        # Применяем множитель (ratio) к показаниям
+        ratio_key = self.entity_description.key.replace('_value', '_ratio')
+        ratio = self._device.data.get(ratio_key, 1.0)
+        return value * ratio
 
 
 class ATickRSSISensor(BaseEntity, SensorEntity):

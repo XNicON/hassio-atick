@@ -31,5 +31,25 @@
                 }
             }
         }
+    },
+    "services": {
+        "set_initial_values": {
+            "name": "Set initial values",
+            "description": "Sets initial water counter readings for the aTick device",
+            "fields": {
+                "device_id": {
+                    "name": "Device",
+                    "description": "aTick device to set readings"
+                },
+                "counter_a": {
+                    "name": "Counter A",
+                    "description": "Initial reading for counter A (in cubic meters)"
+                },
+                "counter_b": {
+                    "name": "Counter B",
+                    "description": "Initial reading for counter B (in cubic meters)"
+                }
+            }
+        }
     }
 }
