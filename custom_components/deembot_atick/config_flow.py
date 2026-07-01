@@ -60,7 +60,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
 
                 name = discovery_info.name
-                device = ATickBTDevice(discovery_info.device)
+                device = ATickBTDevice(
+                    address=discovery_info.address,
+                    name=discovery_info.name,
+                    ble_device=discovery_info.device,
+                )
 
                 try:
                     await device.device_info_update()

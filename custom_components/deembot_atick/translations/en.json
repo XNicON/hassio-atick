@@ -28,6 +28,9 @@
                 },
                 "counter_b_value": {
                     "name": "Water Counter B"
+                },
+                "bluetooth_signal": {
+                    "name": "Bluetooth signal"
                 }
             }
         }

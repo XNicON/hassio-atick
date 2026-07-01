@@ -11,7 +11,11 @@ from .device import ATickBTDevice
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class BaseEntity(PassiveBluetoothCoordinatorEntity[ATickDataUpdateCoordinator]):
+    """Base entity for Deembot aTick."""
+
+    _attr_has_entity_name = True
     _device: ATickBTDevice
 
     def __init__(self, coordinator: ATickDataUpdateCoordinator) -> None:
@@ -22,14 +26,15 @@ class BaseEntity(PassiveBluetoothCoordinatorEntity[ATickDataUpdateCoordinator]):
         self._address = coordinator.address
 
         self._attr_device_info = dr.DeviceInfo(
-            identifiers={
-                (DOMAIN, self._device.base_unique_id)
-            },
-            connections={
-                (dr.CONNECTION_BLUETOOTH, self._address)
-            },
+            identifiers={(DOMAIN, self._device.base_unique_id)},
+            connections={(dr.CONNECTION_BLUETOOTH, self._address)},
             name=self._device.name,
             model=self._device.model,
             manufacturer=self._device.manufacturer,
             sw_version=self._device.firmware_version,
         )
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return super().available and self.coordinator.device_seen

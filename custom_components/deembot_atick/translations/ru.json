@@ -33,6 +33,9 @@
                 },
                 "counter_b_value": {
                     "name": "Счётчик ГВС"
+                },
+                "bluetooth_signal": {
+                    "name": "Bluetooth-сигнал"
                 }
            }
         }

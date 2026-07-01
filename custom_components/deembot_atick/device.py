@@ -5,6 +5,7 @@ import logging
 import time
 from contextlib import AsyncExitStack
 from textwrap import wrap
+from typing import Any
 
 from bleak import BleakClient, BLEDevice, AdvertisementData
 from bleak.exc import BleakError
@@ -28,23 +29,43 @@ class ATickParsedAdvertisementData:
 
 
 class ATickBTDevice:
-    def __init__(self, ble_device: BLEDevice):
+    def __init__(
+        self,
+        address: str,
+        name: str | None = None,
+        ble_device: BLEDevice | None = None,
+        device_info: dict[str, Any] | None = None,
+    ) -> None:
         self._last_active_update = -ACTIVE_POLL_INTERVAL
+        self._address = address.upper()
+        self._name = name or self._address
         self._ble_device = ble_device
-        self.base_unique_id: str = self._ble_device.address
+        self.base_unique_id = self._address
         self._client: BleakClient | None = None
         self._client_stack = AsyncExitStack()
         self._lock = asyncio.Lock()
+
+        device_info = device_info or {}
         self.data: dict[str, str | int | float | None] = {
-            'model': None,
-            'manufacturer': None,
-            'firmware_version': None,
+            'model': device_info.get('model'),
+            'manufacturer': device_info.get('manufacturer'),
+            'firmware_version': device_info.get('firmware_version'),
 
             'counter_a_value': None,
             'counter_b_value': None,
             'counter_a_ratio': 0.01,
             'counter_b_ratio': 0.01,
         }
+
+    @property
+    def address(self) -> str:
+        return self._address
+
+    def set_ble_device(self, ble_device: BLEDevice) -> None:
+        self._ble_device = ble_device
+        self._address = ble_device.address.upper()
+        self._name = ble_device.name or self._name
+        self.base_unique_id = self._address
 
     def active_poll_needed(self, seconds_since_last_poll: float | None) -> bool:
         if seconds_since_last_poll is not None and seconds_since_last_poll < ACTIVE_POLL_INTERVAL:
@@ -83,7 +104,7 @@ class ATickBTDevice:
             new_values = self.parseAdvValuesCounters(
                 adv.manufacturer_data.get(list(adv.manufacturer_data.keys())[-1]),
                 pin or DEFAULT_PIN_DEVICE,
-                self._ble_device.address
+                self._address
             )
         except Exception:
             pass
@@ -106,13 +127,16 @@ class ATickBTDevice:
 
         _LOGGER.debug('update from advertisement')
 
-    async def stop(self):
+    async def stop(self) -> None:
+        if self._client is None:
+            return
+
         try:
             await self._client.disconnect()
         except Exception:
-            pass
-
-        self._client = None
+            _LOGGER.debug("Error while disconnecting from %s", self._address, exc_info=True)
+        finally:
+            self._client = None
 
     @property
     def connected(self):
@@ -121,10 +145,17 @@ class ATickBTDevice:
     async def get_client(self) -> BleakClient:
         async with self._lock:
             if not self.connected:
-                _LOGGER.debug("Connecting")
+                if self._ble_device is None:
+                    raise asyncio.TimeoutError(
+                        f"BT device {self._address} is not available for connection"
+                    )
+
+                _LOGGER.debug("Connecting to %s", self._address)
 
                 try:
-                    self._client = await self._client_stack.enter_async_context(BleakClient(self._ble_device, timeout=15))
+                    self._client = await self._client_stack.enter_async_context(
+                        BleakClient(self._ble_device, timeout=15)
+                    )
                 except asyncio.TimeoutError as exc:
                     _LOGGER.debug("Timeout on connect", exc_info=True)
                     raise asyncio.TimeoutError("Timeout on connect") from exc
@@ -226,7 +257,7 @@ class ATickBTDevice:
 
     @property
     def name(self):
-        return self._ble_device.name
+        return self._ble_device.name if self._ble_device else self._name
 
     @property
     def model(self):
